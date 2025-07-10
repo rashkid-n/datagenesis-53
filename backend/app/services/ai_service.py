@@ -479,16 +479,16 @@ class AIService:
                 }
                 
                 async with session.post(
-                f"{self.base_url}/api/generate",
-                headers=self.headers,
-                json=payload
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    text = data['response']
-                    return self._parse_data_response(text, config)
-                else:
-                    raise Exception(f"Ollama API error: {response.status}")
+                    f"{self.base_url}/api/generate",
+                    headers=self.headers,
+                    json=payload
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        text = data['response']
+                        return self._parse_data_response(text, config)
+                    else:
+                        raise Exception(f"Ollama API error: {response.status}")
 
     def _parse_data_response(self, text: str, config: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Parse data generation response"""
