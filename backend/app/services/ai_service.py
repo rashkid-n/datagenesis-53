@@ -79,6 +79,17 @@ class AIService:
         """Configure Ollama"""
         self.base_url = self.endpoint or 'http://localhost:11434'
         self.headers = {'Content-Type': 'application/json'}
+        
+        # Configure ollama service instance
+        from .ollama_service import OllamaService
+        if not hasattr(self, '_ollama_service'):
+            self._ollama_service = OllamaService(self.base_url)
+        
+        # Configure the specific model and endpoint
+        self._ollama_service.configure_model(self.current_model, self.base_url)
+        
+        # Initialize the ollama service
+        await self._ollama_service.initialize()
     
     async def health_check(self) -> Dict[str, Any]:
         """Check AI service health - NO CACHING"""
@@ -284,24 +295,32 @@ class AIService:
     
     async def _generate_schema_ollama(self, prompt: str) -> Dict[str, Any]:
         """Generate schema using Ollama"""
-        async with aiohttp.ClientSession() as session:
-            payload = {
-                "model": self.current_model,
-                "prompt": prompt,
-                "stream": False
-            }
-            
-            async with session.post(
-                f"{self.base_url}/api/generate",
-                headers=self.headers,
-                json=payload
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    text = data['response']
-                    return self._parse_json_response(text)
-                else:
-                    raise Exception(f"Ollama API error: {response.status}")
+        if hasattr(self, '_ollama_service') and self._ollama_service.is_initialized:
+            return await self._ollama_service.generate_schema_from_natural_language(
+                prompt.split('Description: "')[1].split('"')[0] if 'Description: "' in prompt else "user profile data",
+                "general",
+                "tabular"
+            )
+        else:
+            # Fallback to direct API call
+            async with aiohttp.ClientSession() as session:
+                payload = {
+                    "model": self.current_model,
+                    "prompt": prompt,
+                    "stream": False
+                }
+                
+                async with session.post(
+                    f"{self.base_url}/api/generate",
+                    headers=self.headers,
+                    json=payload
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        text = data['response']
+                        return self._parse_json_response(text)
+                    else:
+                        raise Exception(f"Ollama API error: {response.status}")
     
     def _parse_json_response(self, text: str) -> Dict[str, Any]:
         """Parse JSON response from AI models"""
@@ -434,14 +453,32 @@ class AIService:
 
     async def _generate_data_ollama(self, prompt: str, config: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Generate data using Ollama"""
-        async with aiohttp.ClientSession() as session:
-            payload = {
-                "model": self.current_model,
-                "prompt": prompt,
-                "stream": False
-            }
+        if hasattr(self, '_ollama_service') and self._ollama_service.is_initialized:
+            # Extract schema from prompt (simplified)
+            schema = {}
+            description = ""
+            try:
+                # Try to parse schema from prompt
+                if "Schema:" in prompt:
+                    schema_part = prompt.split("Schema:")[1].split("Context:")[0].strip()
+                    import json
+                    schema = json.loads(schema_part)
+            except:
+                schema = {"name": {"type": "string", "examples": ["John Doe"]}}
             
-            async with session.post(
+            return await self._ollama_service.generate_synthetic_data(
+                schema, config, description, None
+            )
+        else:
+            # Fallback to direct API call
+            async with aiohttp.ClientSession() as session:
+                payload = {
+                    "model": self.current_model,
+                    "prompt": prompt,
+                    "stream": False
+                }
+                
+                async with session.post(
                 f"{self.base_url}/api/generate",
                 headers=self.headers,
                 json=payload

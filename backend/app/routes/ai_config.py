@@ -56,6 +56,7 @@ async def configure_ai_model(config: AIConfigRequest, request: Request):
             "message": f"Successfully configured {config.provider} with model {config.model}",
             "provider": config.provider,
             "model": config.model,
+            "endpoint": config.endpoint,
             "health": health_result
         }
         
@@ -141,11 +142,13 @@ async def get_supported_providers():
             "ollama": {
                 "name": "Ollama (Local)",
                 "models": [
-                    "llama2",
-                    "llama3",
-                    "mistral",
-                    "codellama",
-                    "phi",
+                    "llama3:8b",
+                    "llama3:70b", 
+                    "llama3.2:3b",
+                    "llama2:7b",
+                    "mistral:7b",
+                    "codellama:7b",
+                    "phi3:3.8b",
                     "custom"
                 ],
                 "requires_api_key": False,
@@ -168,7 +171,7 @@ async def test_ai_connection():
         # Perform a simple test generation
         test_result = await ai_service.generate_schema_from_natural_language(
             description="A simple user profile with name and email",
-            domain="test",
+            domain="general",
             data_type="tabular"
         )
         

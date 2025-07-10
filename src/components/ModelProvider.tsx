@@ -31,17 +31,19 @@ const defaultModels = {
     'gpt-4o-mini'
   ],
   anthropic: [
-    'claude-3-sonnet',
-    'claude-3-haiku',
-    'claude-3-opus',
-    'claude-3-5-sonnet'
+    'claude-3-5-sonnet-20241022',
+    'claude-3-sonnet-20240229',
+    'claude-3-haiku-20240307',
+    'claude-3-opus-20240229'
   ],
   ollama: [
-    'llama2',
-    'llama3',
-    'mistral',
-    'codellama',
-    'phi',
+    'llama3:8b',
+    'llama3:70b',
+    'llama3.2:3b',
+    'llama2:7b',
+    'mistral:7b',
+    'codellama:7b',
+    'phi3:3.8b',
     'custom'
   ]
 };

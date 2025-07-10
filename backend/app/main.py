@@ -184,7 +184,7 @@ async def generate_schema_from_description(
     request: dict,
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    """Generate schema from natural language description using Gemini 2.0 Flash"""
+    """Generate schema from natural language description using configured AI service"""
     description = request.get("description", "")
     domain = request.get("domain", "general")
     data_type = request.get("data_type", "tabular")
@@ -194,9 +194,15 @@ async def generate_schema_from_description(
         raise HTTPException(status_code=400, detail="Description must be at least 10 characters long")
     
     try:
-        schema_result = await gemini_service.generate_schema_from_natural_language(
-            description, domain, data_type
-        )
+        # Try using configured AI service first, fallback to Gemini
+        if ai_service.is_initialized:
+            schema_result = await ai_service.generate_schema_from_natural_language(
+                description, domain, data_type
+            )
+        else:
+            schema_result = await gemini_service.generate_schema_from_natural_language(
+                description, domain, data_type
+            )
         
         return {
             "schema": schema_result.get('schema', {}),
@@ -215,26 +221,42 @@ async def generate_synthetic_data(
     request: dict,
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    """Generate enterprise-grade synthetic data using AI"""
+    """Generate enterprise-grade synthetic data using configured AI service or orchestrator"""
     schema = request.get('schema', {})
     config = request.get('config', {})
     description = request.get('description', '')
     source_data = request.get('sourceData', [])
     
-    # Generate unique job ID for tracking
-    job_id = str(uuid.uuid4())
-    
     try:
-        result = await orchestrator.orchestrate_generation(
-            job_id=job_id,
-            source_data=source_data,
-            schema=schema,
-            config=config,
-            description=description,
-            websocket_manager=websocket_manager
-        )
-        
-        return result
+        # If AI service is configured, use it directly for faster generation
+        if ai_service.is_initialized:
+            logger.info(f"🎯 Using configured AI service: {ai_service.current_provider}")
+            result = await ai_service.generate_synthetic_data_advanced(
+                schema=schema,
+                config=config,
+                description=description
+            )
+            
+            return {
+                "synthetic_data": result,
+                "message": f"Generated using {ai_service.current_provider}",
+                "records_generated": len(result),
+                "provider": ai_service.current_provider,
+                "model": ai_service.current_model
+            }
+        else:
+            # Fallback to orchestrator with Ollama
+            logger.info("🔄 Using agent orchestrator as fallback")
+            job_id = str(uuid.uuid4())
+            result = await orchestrator.orchestrate_generation(
+                job_id=job_id,
+                source_data=source_data,
+                schema=schema,
+                config=config,
+                description=description,
+                websocket_manager=websocket_manager
+            )
+            return result
         
     except Exception as e:
         logger.error(f"Generation failed: {str(e)}")

@@ -3,10 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Settings, 
   Key, 
-  Brain, 
-  Zap, 
-  Globe, 
-  Server,
   Check,
   X,
   Eye,
@@ -17,6 +13,12 @@ import {
 } from 'lucide-react';
 import { useModel, ModelConfig } from './ModelProvider';
 
+// Import provider logos
+import geminiLogo from '../assets/providers/gemini-logo.png';
+import openaiLogo from '../assets/providers/openai-logo.png';
+import anthropicLogo from '../assets/providers/anthropic-logo.png';
+import ollamaLogo from '../assets/providers/ollama-logo.png';
+
 interface ModelSelectorProps {
   isOpen: boolean;
   onClose: () => void;
@@ -25,7 +27,7 @@ interface ModelSelectorProps {
 const ModelSelector: React.FC<ModelSelectorProps> = ({ isOpen, onClose }) => {
   const { currentModel, availableModels, setModel } = useModel();
   const [selectedProvider, setSelectedProvider] = useState<string>(currentModel?.provider || 'gemini');
-  const [selectedModel, setSelectedModel] = useState(currentModel?.model || 'gemini-1.5-flash');
+  const [selectedModel, setSelectedModel] = useState(currentModel?.model || (currentModel?.provider === 'ollama' ? 'llama3:8b' : 'gemini-1.5-flash'));
   const [apiKey, setApiKey] = useState(currentModel?.apiKey || '');
   const [endpoint, setEndpoint] = useState(currentModel?.endpoint || 'http://localhost:11434');
   const [showApiKey, setShowApiKey] = useState(false);
@@ -135,11 +137,16 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ isOpen, onClose }) => {
 
   const getProviderIcon = (provider: string) => {
     switch (provider) {
-      case 'gemini': return <Brain className="w-5 h-5" />;
-      case 'openai': return <Zap className="w-5 h-5" />;
-      case 'anthropic': return <Globe className="w-5 h-5" />;
-      case 'ollama': return <Server className="w-5 h-5" />;
-      default: return <Settings className="w-5 h-5" />;
+      case 'gemini': 
+        return <img src={geminiLogo} alt="Gemini" className="w-5 h-5 rounded" />;
+      case 'openai': 
+        return <img src={openaiLogo} alt="OpenAI" className="w-5 h-5 rounded" />;
+      case 'anthropic': 
+        return <img src={anthropicLogo} alt="Anthropic" className="w-5 h-5 rounded" />;
+      case 'ollama': 
+        return <img src={ollamaLogo} alt="Ollama" className="w-5 h-5 rounded" />;
+      default: 
+        return <Settings className="w-5 h-5" />;
     }
   };
 
@@ -203,7 +210,13 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ isOpen, onClose }) => {
                   key={provider}
                   onClick={() => {
                     setSelectedProvider(provider);
-                    setSelectedModel(availableModels[provider][0]);
+                    // Set appropriate default model for the provider
+                    const defaultModel = provider === 'ollama' ? 'llama3:8b' : availableModels[provider][0];
+                    setSelectedModel(defaultModel);
+                    // Reset API key if switching to Ollama
+                    if (provider === 'ollama') {
+                      setApiKey('');
+                    }
                   }}
                   className={`p-4 rounded-lg border-2 transition-all text-left ${
                     selectedProvider === provider

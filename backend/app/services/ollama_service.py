@@ -17,9 +17,20 @@ logger = logging.getLogger(__name__)
 class OllamaService:
     def __init__(self, base_url: str = "http://localhost:11434"):
         self.base_url = base_url
-        self.model_name = "llama3.2:3b"  # Default model
+        self.model_name = "llama3:8b"  # Default model - matches user's available model
         self.is_initialized = False
         self.client = httpx.AsyncClient(timeout=httpx.Timeout(60.0))
+        
+    def configure_model(self, model_name: str, base_url: str = None):
+        """Configure Ollama model and endpoint"""
+        self.model_name = model_name
+        if base_url:
+            self.base_url = base_url
+            # Update client with new base URL
+            self.client = httpx.AsyncClient(timeout=httpx.Timeout(60.0))
+        # Re-initialize with new settings
+        logger.info(f"🔧 Ollama configured: {model_name} at {self.base_url}")
+        return True
         
     async def initialize(self):
         """Initialize Ollama service and check if model is available"""
@@ -36,12 +47,28 @@ class OllamaService:
                     logger.info(f"✅ Ollama service initialized with {self.model_name}")
                     return True
                 else:
-                    # Try to pull the model
-                    logger.info(f"🔄 Pulling {self.model_name} model...")
-                    await self._pull_model(self.model_name)
-                    self.is_initialized = True
-                    logger.info(f"✅ Ollama service initialized with {self.model_name}")
-                    return True
+                    # Check for alternative models first
+                    available_llama_models = [m for m in models if 'llama3' in m.lower()]
+                    if available_llama_models:
+                        # Use the first available Llama3 model
+                        self.model_name = available_llama_models[0]
+                        self.is_initialized = True
+                        logger.info(f"✅ Ollama service initialized with available model: {self.model_name}")
+                        return True
+                    
+                    # Check for any available models as fallback
+                    if models:
+                        logger.warning(f"⚠️ No Llama3 models found, using: {models[0]}")
+                        self.model_name = models[0]
+                        self.is_initialized = True
+                        return True
+                    else:
+                        # Only pull if no suitable model found
+                        logger.info(f"🔄 No models found. Pulling {self.model_name}...")
+                        await self._pull_model(self.model_name)
+                        self.is_initialized = True
+                        logger.info(f"✅ Ollama service initialized with {self.model_name}")
+                        return True
             else:
                 logger.warning("⚠️ Ollama service not responding")
                 return False
